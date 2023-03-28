@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: tyk-system
+resources:
+  - tyk-gtw-pvc.yaml
+  - tyk-gtw-env-configmap.yaml
+  - deployment.yaml
+  - service.yaml

@@ -1,0 +1,187 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: gateway-tyk-gateway-tyk-headless
+    release: tyk-gateway
+  name: gateway-tyk-gateway-tyk-headless
+  namespace: tyk-system
+spec:
+  minReadySeconds: 5
+  progressDeadlineSeconds: 600
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gateway-tyk-gateway-tyk-headless
+      release: tyk-gateway
+  strategy:
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: gateway-tyk-gateway-tyk-headless
+        release: tyk-gateway
+    spec:
+      containers:
+      - command:
+        - /opt/tyk-gateway/tyk
+        - --conf=/etc/tyk-gateway/tyk.conf
+        env:
+          - name: TYK_GW_LISTENPORT
+            valueFrom:
+              configMapKeyRef:
+                name: tyk-gtw-env-configmap
+                key: tykGwListenPort
+          - name: TYK_LOGLEVEL
+            valueFrom:
+              configMapKeyRef:
+                name: tyk-gtw-env-configmap
+                key: tykLogLevel
+          - name: TYK_GW_STORAGE_ADDRS
+            valueFrom:
+              configMapKeyRef:
+                name: tyk-gtw-env-configmap
+                key: tykGwStorageAddrs
+          - name: TYK_GW_STORAGE_DATABASE
+            valueFrom:
+              configMapKeyRef:
+                name: tyk-gtw-env-configmap
+                key: tykGwStorageDatabase
+          - name: REDIGOCLUSTER_SHARDCOUNT
+            valueFrom:
+              configMapKeyRef:
+                name: tyk-gtw-env-configmap
+                key: redisGoClusterShardCount
+          - name: TYK_GW_STORAGE_MASTERNAME
+            valueFrom:
+              configMapKeyRef:
+                name: tyk-gtw-env-configmap
+                key: tykGwStorageMasterName
+          - name: TYK_GW_STORAGE_ENABLECLUSTER
+            valueFrom:
+              configMapKeyRef:
+                name: tyk-gtw-env-configmap
+                key: tykGwStorageEnableCluster
+          - name: TYK_GW_STORAGE_USESSL
+            valueFrom:
+              configMapKeyRef:
+                name: tyk-gtw-env-configmap
+                key: tykGwStorageUseSSL
+          - name: TYK_GW_HTTPSERVEROPTIONS_USESSL
+            valueFrom:
+              configMapKeyRef:
+                name: tyk-gtw-env-configmap
+                key: tykGwHttpServerOptionsUseSSL
+          - name: TYK_GW_HTTPSERVEROPTIONS_ENABLEWEBSOCKETS
+            valueFrom:
+              configMapKeyRef:
+                name: tyk-gtw-env-configmap
+                key: tykGwHttpServerOptionsEnableWebsockets
+          - name: TYK_GW_ENABLEJSVM
+            valueFrom:
+              configMapKeyRef:
+                name: tyk-gtw-env-configmap
+                key: tykGwEnableJsvm
+          - name: TYK_GW_STORAGE_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                key: redisPass
+                name: tyk-gtw-secret
+          - name: TYK_GW_SECRET
+            valueFrom:
+              secretKeyRef:
+                key: apiSecret
+                name: tyk-gtw-secret
+          - name: TYK_GW_NODESECRET
+            valueFrom:
+              secretKeyRef:
+                key: apiSecret
+                name: tyk-gtw-secret
+        image: docker.tyk.io/tyk-gateway/tyk-gateway:v4.3.1
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 2
+          httpGet:
+            path: /hello
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 2
+          successThreshold: 1
+          timeoutSeconds: 3
+        name: gateway-tyk-headless
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /hello
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 1
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 3
+        resources: {}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - all
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+          - mountPath: /etc/tyk-gateway
+            name: tyk-gtw-config-secret
+          - mountPath: /data/tyk-gateway
+            name: tyk-gtw-data
+        # - mountPath: /etc/certs
+        #   name: tyk-gateway-default-cert
+        # - mountPath: /mnt/tyk-gateway
+        #   name: tyk-scratch
+        workingDir: /opt/tyk-gateway
+      dnsPolicy: ClusterFirst
+      initContainers:
+      - command:
+        - sh
+        - -c
+        - mkdir -p apps middleware policies && touch policies/policies.json
+        image: busybox:1.32
+        imagePullPolicy: IfNotPresent
+        name: setup-directories
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /data/tyk-gateway
+          name: tyk-gtw-data
+        workingDir: /data/tyk-gateway
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        fsGroup: 2000
+        runAsUser: 1000
+      terminationGracePeriodSeconds: 30
+
+      volumes:
+        - name: tyk-gtw-config-secret
+          secret:
+            secretName: tyk-gtw-config-secret
+            defaultMode: 420
+            items:
+            - key: tyk_mgmt.conf
+              path: tyk.conf
+        - name: tyk-gtw-data
+          persistentVolumeClaim:
+            claimName: tyk-gtw-pvc
+      # - name: tyk-gateway-default-cert
+      #   secret:
+      #     defaultMode: 420
+      #     secretName: tyk-gateway-default-cert

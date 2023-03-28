@@ -1,0 +1,21 @@
+apiVersion: v1
+data:
+  tykLogLevel: "debug"
+  tykGwListenPort: "8080"
+  redisGoClusterShardCount: "128"
+  tykGwStorageAddrs: "tyk-redis-headless.tyk-system.svc.cluster.local:6379"
+  tykGwStorageMasterName: ""
+  tykGwStorageEnableCluster: "false"
+  tykGwStorageUseSSL: "false"
+  tykGwStorageDatabase: "0"
+  tykGwHttpServerOptionsUseSSL: "false"
+  tykGwHttpServerOptionsEnableWebsockets: "true"
+  tykGwEnableJsvm: "true"
+kind: ConfigMap
+metadata:
+  labels:
+    app: gateway-tyk-gateway-tyk-headless
+    release: tyk-gateway
+  name: tyk-gtw-env-configmap
+  namespace: tyk-system
+  
